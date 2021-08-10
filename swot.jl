@@ -4,39 +4,54 @@ using Sad
 using DelimitedFiles
 using Distributions
 using NCDatasets
-using JSON
 
 const FILL = -999999999999
 
 """
 Get reach file names.
 """
-function get_reach_files(indir, reachjson)
+function get_reach_files(reachtxt)
     line = parse(Int64, ENV["AWS_BATCH_JOB_ARRAY_INDEX"]) + 1
-    open(joinpath(indir, reachjson)) do jf
-        data = read(jf, String)
-        reachlist = JSON.parse(data)[line]
-        reachlist["reach_id"], joinpath(indir, "swot", reachlist["swot"]), joinpath(indir, "sos", reachlist["sos"])
-    end
+    lines = readdlm(reachtxt, '\n', String, '\n')
+    reach = lines[line]
+    "$(reach)_SWOT.nc", "$(reach)_SOS.nc" 
 end
 
 """
 Load SWOT observations.
 """
 function read_swot_obs(ncfile)
-    ds = NCDataset(ncfile)
+    ds = Dataset(ncfile)
     nodes = NCDatasets.group(ds, "node")
     S = nodes["slope2"][:]
-    S = Array{Union{Float32, Missing}}(nodes["slope2"][:])
-    S[S .≈ 9.969209968386869e36] .= missing
     H = nodes["wse"][:]
-    H = Array{Union{Float32, Missing}}(nodes["wse"][:])
-    H[H .≈ 9.969209968386869e36] .= missing
     W = nodes["width"][:]
-    W = Array{Union{Float32, Missing}}(nodes["width"][:])
-    W[W .≈ 9.969209968386869e36] .= missing
-    close(ds)
     H, W, S
+end
+
+"""
+Write SAD output to NetCDF.
+"""
+function write_output(sosfile, outdir, A0, n, Qa, Qu)
+    sos = Dataset(sosfile)
+    reach_id = sos.attrib["reach_id"]
+    valid = sos.attrib["valid"]    
+    close(sos)
+    
+    outfile = joinpath(outdir, "$(reach_id)_sad.nc")
+    out = Dataset(outfile, "c")
+    out.attrib["reach_id"] = reach_id
+    out.attrib["valid"] = valid   # FIXME Determine what is considered valid in the context of a SAD run
+    defDim(out, "nt", size(Qa)[2])
+    A0v = defVar(out, "A0", Float64, (), fillvalue = FILL)
+    A0v[:] = A0
+    nv = defVar(out, "n", Float64, (), fillvalue = FILL)
+    nv[:] = n
+    Qav = defVar(out, "Qa", Float64, ("nt",), fillvalue = FILL)
+    Qav[:,:] = Qa
+    Quv = defVar(out, "Q_u", Float64, ("nt",), fillvalue = FILL)
+    Quv[:,:] = Qu
+    close(out)
 end
 
 """
@@ -64,51 +79,26 @@ function channel_chainage(H, W, S)
 end
 
 """
-Write SAD output to NetCDF.
-"""
-function write_output(reachid, valid, outdir, A0, n, Qa, Qu)
-    outfile = joinpath(outdir, "$(reachid)_sad.nc")
-    out = Dataset(outfile, "c")
-    out.attrib["valid"] = valid   # FIXME Determine what is considered valid in the context of a SAD run
-    defDim(out, "nt", size(Qa,2))
-    ridv = defVar(out, "reach_id", Int64, (), fillvalue = FILL)
-    ridv[:] = reachid
-    A0v = defVar(out, "A0", Float64, (), fillvalue = FILL)
-    A0v[:] = A0
-    nv = defVar(out, "n", Float64, (), fillvalue = FILL)
-    nv[:] = n
-    Qav = defVar(out, "Qa", Float64, ("nt",), fillvalue = FILL)
-    Qav[:,:] = Qa
-    Quv = defVar(out, "Q_u", Float64, ("nt",), fillvalue = FILL)
-    Quv[:,:] = Qu
-    close(out)
-end
-
-"""
 Main driver routine.
 """
 function main()
         indir = joinpath("/mnt", "data", "input")
         outdir = joinpath("/mnt", "data", "output")
 
-        isempty(ARGS) ? reachfile = "reaches.json" : reachfile = ARGS[1]
-        reachid, swotfile, swordfile = get_reach_files(indir, reachfile)
+        isempty(ARGS) ? reachfile = "reaches.txt" : reachfile = ARGS[1]
+        swot, sos = get_reach_files(joinpath(indir, reachfile))
+        swotfile = joinpath(indir, "swot", swot) # NetCDF file with SWOT observations
+        swordfile = joinpath(indir, "sos", sos) # NetCDF file with SWORD database 
 
         H, W, S = read_swot_obs(swotfile)
-        if all(ismissing, H) || all(ismissing, W) || all(ismissing, S)
-            A0 = missing
-            n = missing
-            Qa = Array{Missing}(missing, 1, size(W,2))
-            Qu = Array{Missing}(missing, 1, size(W,2))
-            write_output(reachid, 0, outdir, A0, n, Qa, Qu)
-        else
-            H, W, S, x = channel_chainage(H, W, S)
-            Qₚ, nₚ, rₚ, zₚ = Sad.priors(swordfile, H, reachid)
-            nens = 100 # default ensemble size
-            A0, n, Qa, Qu = Sad.assimilate(H, W, x, maximum(W, dims=2), maximum(H, dims=2), S,
-                                Qₚ, nₚ, rₚ, zₚ, nens, [1, length(x)])
-            write_output(reachid, 1, outdir, A0, n, Qa, Qu)
-        end
+        H, W, S, x = channel_chainage(H, W, S)
+        Qₚ, nₚ, rₚ, zₚ = Sad.priors(swordfile, H)
+        nens = 100 # default ensemble size
+        A0, n, Qa, Qu = Sad.assimilate(H, W, x, maximum(W, dims=2), maximum(H, dims=2), S,
+                            Qₚ, nₚ, rₚ, zₚ, nens, [1, length(x)])
+        
+        write_output(swordfile, outdir, A0, n, Qa, Qu)
+    
 end
 
 main()
