@@ -26,15 +26,18 @@ Load SWOT observations.
 function read_swot_obs(ncfile)
     ds = NCDataset(ncfile)
     nodes = NCDatasets.group(ds, "node")
-    S = nodes["slope2"][:]
-    S = Array{Union{Float32, Missing}}(nodes["slope2"][:])
-    S[S .≈ 9.969209968386869e36] .= missing
-    H = nodes["wse"][:]
-    H = Array{Union{Float32, Missing}}(nodes["wse"][:])
-    H[H .≈ 9.969209968386869e36] .= missing
-    W = nodes["width"][:]
-    W = Array{Union{Float32, Missing}}(nodes["width"][:])
-    W[W .≈ 9.969209968386869e36] .= missing
+    # S = nodes["slope2"][:]
+    S = Array{Union{Float64, Missing}}(nodes["slope2"][:])
+    S[S .=== missing] .= 0.0
+    # S[S .≈ 9.969209968386869e36] .= missing
+    # H = nodes["wse"][:]
+    H = Array{Union{Float64, Missing}}(nodes["wse"][:])
+    H[H .=== missing] .= 0.0
+    # H[H .≈ 9.969209968386869e36] .= missing
+    # W = nodes["width"][:]
+    W = Array{Union{Float64, Missing}}(nodes["width"][:])
+    W[W .=== missing] .= 0.0
+    # W[W .≈ 9.969209968386869e36] .= missing
     close(ds)
     H, W, S
 end
@@ -88,27 +91,40 @@ end
 Main driver routine.
 """
 function main()
-        indir = joinpath("/mnt", "data", "input")
-        outdir = joinpath("/mnt", "data", "output")
+    indir = joinpath("/mnt", "data", "input")
+    outdir = joinpath("/mnt", "data", "output")
 
-        isempty(ARGS) ? reachfile = "reaches.json" : reachfile = ARGS[1]
-        reachid, swotfile, swordfile = get_reach_files(indir, reachfile)
+    isempty(ARGS) ? reachfile = "reaches.json" : reachfile = ARGS[1]
+    reachid, swotfile, swordfile = get_reach_files(indir, reachfile)
 
-        H, W, S = read_swot_obs(swotfile)
-        if all(ismissing, H) || all(ismissing, W) || all(ismissing, S)
-            A0 = missing
-            n = missing
-            Qa = Array{Missing}(missing, 1, size(W,2))
-            Qu = Array{Missing}(missing, 1, size(W,2))
+    H, W, S = read_swot_obs(swotfile)
+    A0 = missing
+    n = missing
+    Qa = Array{Missing}(missing, 1, size(W,2))
+    Qu = Array{Missing}(missing, 1, size(W,2))
+    if all(ismissing, H) || all(ismissing, W) || all(ismissing, S)
+        println("$(reachid): INVALID")
+        write_output(reachid, 0, outdir, A0, n, Qa, Qu)
+    else
+        H, W, S, x = channel_chainage(H, W, S)
+        Qₚ, nₚ, rₚ, zₚ = Sad.priors(swordfile, H, reachid)
+        if ismissing(Qₚ) || ismissing(nₚ) || ismissing(rₚ) || ismissing(zₚ)
+            println("$(reachid): INVALID")
             write_output(reachid, 0, outdir, A0, n, Qa, Qu)
         else
-            H, W, S, x = channel_chainage(H, W, S)
-            Qₚ, nₚ, rₚ, zₚ = Sad.priors(swordfile, H, reachid)
-            nens = 100 # default ensemble size
-            A0, n, Qa, Qu = Sad.assimilate(H, W, x, maximum(W, dims=2), maximum(H, dims=2), S,
-                                Qₚ, nₚ, rₚ, zₚ, nens, [1, length(x)])
-            write_output(reachid, 1, outdir, A0, n, Qa, Qu)
+            try
+                nens = 100 # default ensemble size
+                A0, n, Qa, Qu = Sad.assimilate(H, W, x, maximum(W, dims=2), maximum(H, dims=2), S,
+                                    Qₚ, nₚ, rₚ, zₚ, nens, [1, length(x)])
+                println("$(reachid): VALID")
+                write_output(reachid, 1, outdir, A0, n, Qa, Qu)
+            catch e
+                println("$(reachid): INVALID")
+                println(e)
+                write_output(reachid, 0, outdir, A0, n, Qa, Qu)
+            end
         end
+    end
 end
 
 main()
