@@ -3,6 +3,7 @@
 using Sad
 using DelimitedFiles
 using Distributions
+using LinearAlgebra
 using NCDatasets
 using JSON
 
@@ -12,7 +13,7 @@ const FILL = -999999999999
 Get reach file names.
 """
 function get_reach_files(indir, reachjson)
-    line = parse(Int64, ENV["AWS_BATCH_JOB_ARRAY_INDEX"]) + 1
+    line = try parse(Int64, ENV["AWS_BATCH_JOB_ARRAY_INDEX"]) + 1 catch KeyError 1 end
     open(joinpath(indir, reachjson)) do jf
         data = read(jf, String)
         reachlist = JSON.parse(data)[line]
@@ -26,19 +27,9 @@ Load SWOT observations.
 function read_swot_obs(ncfile)
     ds = NCDataset(ncfile)
     nodes = NCDatasets.group(ds, "node")
-    # S = nodes["slope2"][:]
-    S = Array{Union{Float64, Missing}}(nodes["slope2"][:])
-    S[S .=== missing] .= 0.0
-    # S[S .≈ 9.969209968386869e36] .= missing
-    # H = nodes["wse"][:]
-    H = Array{Union{Float64, Missing}}(nodes["wse"][:])
-    H[H .=== missing] .= 0.0
-    # H[H .≈ 9.969209968386869e36] .= missing
-    # W = nodes["width"][:]
-    W = Array{Union{Float64, Missing}}(nodes["width"][:])
-    W[W .=== missing] .= 0.0
-    # W[W .≈ 9.969209968386869e36] .= missing
-    close(ds)
+    S = nodes["slope2"][:]
+    H = nodes["wse"][:]
+    W = nodes["width"][:]
     H, W, S
 end
 
@@ -46,17 +37,16 @@ end
 Extract river channel chainage.
 """
 function channel_chainage(H, W, S)
+    # find nodes with at least one valid observation
+    j = [v[2] for v in findall(any(!ismissing, H, dims=1))]
+    H, W, S = H[:, j], W[:, j], S[:, j]
     # sort nodes from downstream to upstream
-    # FIXME: currently uses the mean water surface elevation
-    hm = [mean(skipmissing(H[:, c])) for c in 1:size(H, 2)]
+    # FIXME: currently uses the minimum water surface elevation
+    hm = [minimum(skipmissing(H[:, c])) for c in 1:size(H, 2)]
     i = sortperm(hm)
     H = H[:, i]'
     W = W[:, i]'
     S = S[:, i]'
-    j = [v[1] for v in findall(all(!ismissing, H, dims=2))]
-    H = convert(Array{Float64, 2}, H[j, :])
-    W = convert(Array{Float64, 2}, W[j, :])
-    S = convert(Array{Float64, 2}, S[j, :])
     # calculate distance from downstream node
     # FIXME: CSV with geographical information does not correspond directly to the nodes in each SWOT
     # orbit pass file. We can't use the calculated slope do derive the distance between
@@ -94,7 +84,7 @@ function main()
     indir = joinpath("/mnt", "data", "input")
     outdir = joinpath("/mnt", "data", "output")
 
-    isempty(ARGS) ? reachfile = "reaches.json" : reachfile = ARGS[1]
+    reachfile = isempty(ARGS) ? "reaches.json" : reachfile = ARGS[1]
     reachid, swotfile, swordfile = get_reach_files(indir, reachfile)
 
     H, W, S = read_swot_obs(swotfile)
@@ -108,21 +98,17 @@ function main()
     else
         H, W, S, x = channel_chainage(H, W, S)
         Qₚ, nₚ, rₚ, zₚ = Sad.priors(swordfile, H, reachid)
-        if ismissing(Qₚ) || ismissing(nₚ) || ismissing(rₚ) || ismissing(zₚ)
-            println("$(reachid): INVALID")
+        if ismissing(Qₚ)
+            println("$(reachid): INVALID, missing mean discharge")
             write_output(reachid, 0, outdir, A0, n, Qa, Qu)
         else
-            try
-                nens = 100 # default ensemble size
-                A0, n, Qa, Qu = Sad.assimilate(H, W, x, maximum(W, dims=2), maximum(H, dims=2), S,
-                                    Qₚ, nₚ, rₚ, zₚ, nens, [1, length(x)])
-                println("$(reachid): VALID")
-                write_output(reachid, 1, outdir, A0, n, Qa, Qu)
-            catch e
-                println("$(reachid): INVALID")
-                println(e)
-                write_output(reachid, 0, outdir, A0, n, Qa, Qu)
-            end
+            nens = 10 # default ensemble size
+            hbf = [maximum(skipmissing(H[c, :])) for c=1:size(H, 1)]
+            wbf = [maximum(skipmissing(W[c, :])) for c=1:size(W, 1)]
+            A0, n, Qa, Qu = Sad.assimilate(H, W, x, wbf, hbf, S,
+                                Qₚ, nₚ, rₚ, zₚ, nens, [1, length(x)])
+            println("$(reachid): VALID")
+            write_output(reachid, 1, outdir, A0, n, Qa, Qu)
         end
     end
 end
