@@ -102,13 +102,18 @@ function main()
             println("$(reachid): INVALID, missing mean discharge")
             write_output(reachid, 0, outdir, A0, n, Qa, Qu)
         else
-            nens = 10 # default ensemble size
-            hbf = [maximum(skipmissing(H[c, :])) for c=1:size(H, 1)]
-            wbf = [maximum(skipmissing(W[c, :])) for c=1:size(W, 1)]
-            A0, n, Qa, Qu = Sad.assimilate(H, W, x, wbf, hbf, S,
-                                Qₚ, nₚ, rₚ, zₚ, nens, [1, length(x)])
-            println("$(reachid): VALID")
-            write_output(reachid, 1, outdir, A0, n, Qa, Qu)
+            try
+                nens = 10 # default ensemble size
+                hbf = [maximum(skipmissing(H[c, :])) for c=1:size(H, 1)]
+                wbf = [maximum(skipmissing(W[c, :])) for c=1:size(W, 1)]
+                A0, n, Qa, Qu = Sad.assimilate(H, W, x, wbf, hbf, S,
+                                    Qₚ, nₚ, rₚ, zₚ, nens, [1, length(x)])
+                println("$(reachid): VALID")
+                write_output(reachid, 1, outdir, A0, n, Qa, Qu)
+            catch
+                println("$(reachid): INVALID")
+                write_output(reachid, 0, outdir, A0, n, Qa, Qu)
+            end
         end
     end
 end
