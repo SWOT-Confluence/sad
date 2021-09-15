@@ -71,7 +71,7 @@ function write_output(reachid, valid, outdir, A0, n, Qa, Qu)
     nv = defVar(out, "n", Float64, (), fillvalue = FILL)
     nv[:] = n
     Qav = defVar(out, "Qa", Float64, ("nt",), fillvalue = FILL)
-    Qav[:,:] = Qa
+    Qav[:,:] = replace!(Qa, NaN=>FILL)
     Quv = defVar(out, "Q_u", Float64, ("nt",), fillvalue = FILL)
     Quv[:,:] = Qu
     close(out)
@@ -90,8 +90,8 @@ function main()
     H, W, S = read_swot_obs(swotfile)
     A0 = missing
     n = missing
-    Qa = Array{Missing}(missing, 1, size(W,2))
-    Qu = Array{Missing}(missing, 1, size(W,2))
+    Qa = Array{Missing}(missing, 1, size(W,1))
+    Qu = Array{Missing}(missing, 1, size(W,1))
     if all(ismissing, H) || all(ismissing, W) || all(ismissing, S)
         println("$(reachid): INVALID")
         write_output(reachid, 0, outdir, A0, n, Qa, Qu)
