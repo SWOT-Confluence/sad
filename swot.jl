@@ -89,7 +89,7 @@ function write_output(reachid, valid, outdir, A0, n, Qa, Qu)
     outfile = joinpath(outdir, "$(reachid)_sad.nc")
     out = Dataset(outfile, "c")
     out.attrib["valid"] = valid   # FIXME Determine what is considered valid in the context of a SAD run
-    defDim(out, "nt", size(Qa,2))
+    defDim(out, "nt", length(Qa))
     ridv = defVar(out, "reach_id", Int64, (), fillvalue = FILL)
     ridv[:] = reachid
     A0v = defVar(out, "A0", Float64, (), fillvalue = FILL)
@@ -97,9 +97,9 @@ function write_output(reachid, valid, outdir, A0, n, Qa, Qu)
     nv = defVar(out, "n", Float64, (), fillvalue = FILL)
     nv[:] = n
     Qav = defVar(out, "Qa", Float64, ("nt",), fillvalue = FILL)
-    Qav[:,:] = replace!(Qa, NaN=>FILL)
+    Qav[:] = replace!(Qa, NaN=>FILL)
     Quv = defVar(out, "Q_u", Float64, ("nt",), fillvalue = FILL)
-    Quv[:,:] = Qu
+    Quv[:] = Qu
     close(out)
 end
 
