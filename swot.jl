@@ -10,7 +10,10 @@ using JSON
 const FILL = -999999999999
 
 """
+    get_reach_files(indir, reachjson)
+
 Get reach file names.
+
 """
 function get_reach_files(indir, reachjson)
     line = try parse(Int64, ENV["AWS_BATCH_JOB_ARRAY_INDEX"]) + 1 catch KeyError 1 end
@@ -22,42 +25,65 @@ function get_reach_files(indir, reachjson)
 end
 
 """
+    read_swot_obs(ncfile, nids)
+
 Load SWOT observations.
+
+# Arguments
+
+- `ncfile`: NetCDF file with SWOT observations
+- `nids`: sorted node IDs from downstream to upstream
+
 """
-function read_swot_obs(ncfile)
-    ds = NCDataset(ncfile)
-    nodes = NCDatasets.group(ds, "node")
-    S = nodes["slope2"][:]
-    H = nodes["wse"][:]
-    W = nodes["width"][:]
-    H, W, S
+function read_swot_obs(ncfile::String, nids::Vector{Int})
+    Dataset(ncfile) do ds
+        nodes = NCDatasets.group(ds, "node")
+        reaches = NCDatasets.group(ds, "reach")
+        S = permutedims(nodes["slope2"][:])
+        H = permutedims(nodes["wse"][:])
+        W = permutedims(nodes["width"][:])
+        dA = reaches["d_x_area"][1, :]
+        dA = convert(Union{Vector{Sad.FloatM}, Missing}, dA)
+        nid = nodes["node_id"][:]
+        dmap = Dict(nid[k] => k for k=1:length(nid))
+        i = [dmap[k] for k in nids]
+        H[i, :], W[i, :], S[i, :], dA
+    end
 end
 
 """
-Extract river channel chainage.
+    river_info(id, swordfile)
+
+Retrieve information about river reach cross sections.
+
+# Arguments
+
+- `id`: reach ID
+= `swordfile`: SWORD NetCDF file
+
 """
-function channel_chainage(H, W, S)
-    # find nodes with at least one valid observation
-    j = [v[2] for v in findall(any(!ismissing, H, dims=1))]
-    H, W, S = H[:, j], W[:, j], S[:, j]
-    # sort nodes from downstream to upstream
-    # FIXME: currently uses the minimum water surface elevation
-    hm = [minimum(skipmissing(H[:, c])) for c in 1:size(H, 2)]
-    i = sortperm(hm)
-    H = H[:, i]'
-    W = W[:, i]'
-    S = S[:, i]'
-    # calculate distance from downstream node
-    # FIXME: CSV with geographical information does not correspond directly to the nodes in each SWOT
-    # orbit pass file. We can't use the calculated slope do derive the distance between
-    # cross-sections as there are rather implausible discontinuities in the test data.
-    # For now, just assume that cross-sections are 100 m apart
-    x = (collect(0:size(H, 1)) * 100.0)[1:end-1]
-    H, W, S, x
+function river_info(id::Int, swordfile::String)
+    Dataset(swordfile) do fd
+        g = NCDatasets.group(fd, "nodes")
+        i = findall(g["reach_id"][:] .== id)
+        nid = g["node_id"][i]
+        x = g["dist_out"][i]
+        k = findall(.!ismissing.(nid))
+        x = x[k]
+        nid = nid[k]
+        # subtract the minimum `dist_out` and then sort from downstream to upstream
+        x = x .- minimum(x)
+        j = sortperm(x)
+        close(fd)
+        convert(Vector{Int}, nid[j]), x[j]
+    end
 end
 
 """
+    write_output(reachid, valid, outdir, A0, n, Qa, Qu)
+
 Write SAD output to NetCDF.
+
 """
 function write_output(reachid, valid, outdir, A0, n, Qa, Qu)
     outfile = joinpath(outdir, "$(reachid)_sad.nc")
@@ -78,7 +104,10 @@ function write_output(reachid, valid, outdir, A0, n, Qa, Qu)
 end
 
 """
+    main()
+
 Main driver routine.
+
 """
 function main()
     indir = joinpath("/mnt", "data", "input")
@@ -87,7 +116,9 @@ function main()
     reachfile = isempty(ARGS) ? "reaches.json" : reachfile = ARGS[1]
     reachid, swotfile, swordfile = get_reach_files(indir, reachfile)
 
-    H, W, S = read_swot_obs(swotfile)
+    nids, x = river_info(reachid, swordfile)
+    H, W, S, dA = read_swot_obs(swotfile, nids)
+    x, H, W, S = Sad.drop_unobserved(x, H, W, S)
     A0 = missing
     n = missing
     Qa = Array{Missing}(missing, 1, size(W,1))
@@ -96,18 +127,16 @@ function main()
         println("$(reachid): INVALID")
         write_output(reachid, 0, outdir, A0, n, Qa, Qu)
     else
-        H, W, S, x = channel_chainage(H, W, S)
-        Qₚ, nₚ, rₚ, zₚ = Sad.priors(swordfile, H, reachid)
+        Hmin = minimum(skipmissing(H[1, :]))
+        Qp, np, rp, zp = Sad.priors(sosfile, Hmin, reachid)
         if ismissing(Qₚ)
             println("$(reachid): INVALID, missing mean discharge")
             write_output(reachid, 0, outdir, A0, n, Qa, Qu)
         else
             try
-                nens = 10 # default ensemble size
-                hbf = [maximum(skipmissing(H[c, :])) for c=1:size(H, 1)]
-                wbf = [maximum(skipmissing(W[c, :])) for c=1:size(W, 1)]
-                A0, n, Qa, Qu = Sad.assimilate(H, W, x, wbf, hbf, S,
-                                    Qₚ, nₚ, rₚ, zₚ, nens, [1, length(x)])
+                nens = 100 # default ensemble size
+                nsamples = 1000 # default sampling size
+                Qa, Qu, A0, n = Sad.estimate(x, H, W, S, dA, Qp, np, rp, zp, nens, nsamples)
                 println("$(reachid): VALID")
                 write_output(reachid, 1, outdir, A0, n, Qa, Qu)
             catch
