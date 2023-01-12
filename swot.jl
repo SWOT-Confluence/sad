@@ -145,6 +145,7 @@ function main()
             catch
                 println("$(reachid): INVALID because failed estimate")
                 write_output(reachid, 0, outdir, A0, n, Qa, Qu)
+            end
         end
     end
 end
