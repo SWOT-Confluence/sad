@@ -127,7 +127,7 @@ function main()
     Qa = Array{Missing}(missing, 1, size(W,1))
     Qu = Array{Missing}(missing, 1, size(W,1))
     if all(ismissing, H) || all(ismissing, W) || all(ismissing, S)
-        println("$(reachid): INVALID")
+        println("$(reachid): INVALID because missing")
         write_output(reachid, 0, outdir, A0, n, Qa, Qu)
     else
         Hmin = minimum(skipmissing(H[1, :]))
@@ -143,11 +143,9 @@ function main()
                 println("$(reachid): VALID")
                 write_output(reachid, 1, outdir, A0, n, Qa, Qu)
             catch
-                println("$(reachid): INVALID")
+                println("$(reachid): INVALID because failed estimate")
                 write_output(reachid, 0, outdir, A0, n, Qa, Qu)
-            end
         end
     end
 end
-
 main()
