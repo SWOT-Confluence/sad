@@ -37,6 +37,7 @@ Load SWOT observations.
 """
 function read_swot_obs(ncfile::String, nids::Vector{Int})
     Dataset(ncfile) do ds
+        println(ncfile)
         nodes = NCDatasets.group(ds, "node")
         reaches = NCDatasets.group(ds, "reach")
         S = permutedims(nodes["slope2"][:])
@@ -47,12 +48,13 @@ function read_swot_obs(ncfile::String, nids::Vector{Int})
         Hr = convert(Vector{Sad.FloatM}, reaches["wse"][:])
         Wr = convert(Vector{Sad.FloatM}, reaches["width"][:])
         Sr = convert(Vector{Sad.FloatM}, reaches["slope2"][:])
-        W[isnan.(H)] .= missing
-        S[isnan.(H)] .= missing
-        H[isnan.(H)] .= missing
+        W[ismissing.(H)] .= missing
+        S[ismissing.(H)] .= missing
+        H[ismissing.(H)] .= missing
         nid = nodes["node_id"][:]
         dmap = Dict(nid[k] => k for k=1:length(nid))
-        i = [dmap[k] for k in nids]
+        # in partially observed reaches nid and nids may not have the same number of nodes
+        i = [dmap[k] for k in nids if k in nid]
         H[i, :], W[i, :], S[i, :], dA, Hr, Wr, Sr
     end
 end
