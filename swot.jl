@@ -37,7 +37,6 @@ Load SWOT observations.
 """
 function read_swot_obs(ncfile::String, nids::Vector{Int})
     Dataset(ncfile) do ds
-        println(ncfile)
         nodes = NCDatasets.group(ds, "node")
         reaches = NCDatasets.group(ds, "reach")
         S = permutedims(nodes["slope2"][:])
@@ -48,13 +47,12 @@ function read_swot_obs(ncfile::String, nids::Vector{Int})
         Hr = convert(Vector{Sad.FloatM}, reaches["wse"][:])
         Wr = convert(Vector{Sad.FloatM}, reaches["width"][:])
         Sr = convert(Vector{Sad.FloatM}, reaches["slope2"][:])
-        W[ismissing.(H)] .= missing
-        S[ismissing.(H)] .= missing
-        H[ismissing.(H)] .= missing
+        W[.!ismissing.(H) .&& isnan.(H)] .= missing
+        S[.!ismissing.(H) .&& isnan.(H)] .= missing
+        H[.!ismissing.(H) .&& isnan.(H)] .= missing
         nid = nodes["node_id"][:]
         dmap = Dict(nid[k] => k for k=1:length(nid))
-        # in partially observed reaches nid and nids may not have the same number of nodes
-        i = [dmap[k] for k in nids if k in nid]
+        i = [dmap[k] for k in nids]
         H[i, :], W[i, :], S[i, :], dA, Hr, Wr, Sr
     end
 end
@@ -93,12 +91,11 @@ end
 Write SAD output to NetCDF.
 
 """
-function write_output(reachid, valid, outdir, A0, n, Qa, Qu, W)
+function write_output(reachid, valid, outdir, A0, n, Qa, Qu)
     outfile = joinpath(outdir, "$(reachid)_sad.nc")
     out = Dataset(outfile, "c")
     out.attrib["valid"] = valid   # FIXME Determine what is considered valid in the context of a SAD run
-    defDim(out, "nx", size(W,1) + 1)
-    defDim(out, "nt", length(W[1,:]))
+    defDim(out, "nt", length(Qa))
     ridv = defVar(out, "reach_id", Int64, (), fillvalue = FILL)
     ridv[:] = reachid
     A0v = defVar(out, "A0", Float64, (), fillvalue = FILL)
@@ -130,29 +127,30 @@ function main()
     x, H, W, S = Sad.drop_unobserved(x, H, W, S)
     A0 = missing
     n = missing
-    Qa = Array{Missing}(missing, 1, size(W[1,:],1))
-    Qu = Array{Missing}(missing, 1, size(W[1,:],1))
+    Qa = Array{Missing}(missing, 1, size(W,1))
+    Qu = Array{Missing}(missing, 1, size(W,1))
     if all(ismissing, H) || all(ismissing, W) || all(ismissing, S)
-        println("$(reachid): INVALID, Missing H, W, or S")
-        write_output(reachid, 0, outdir, A0, n, Qa, Qu, W)
+        println("$(reachid): INVALID")
+        write_output(reachid, 0, outdir, A0, n, Qa, Qu)
     else
         Hmin = minimum(skipmissing(H[1, :]))
         Qp, np, rp, zp = Sad.priors(sosfile, Hmin, reachid)
         if ismissing(Qp)
             println("$(reachid): INVALID, missing mean discharge")
-            write_output(reachid, 0, outdir, A0, n, Qa, Qu, W)
+            write_output(reachid, 0, outdir, A0, n, Qa, Qu)
         else
             try
                 nens = 100 # default ensemble size
                 nsamples = 1000 # default sampling size
                 Qa, Qu, A0, n = Sad.estimate(x, H, W, S, dA, Qp, np, rp, zp, nens, nsamples, Hr, Wr, Sr)
                 println("$(reachid): VALID")
-                write_output(reachid, 1, outdir, A0, n, Qa, Qu, W)
+                write_output(reachid, 1, outdir, A0, n, Qa, Qu)
             catch
-                println("$(reachid): INVALID, Sad.estimate failure")
-                write_output(reachid, 0, outdir, A0, n, Qa, Qu, W)
+                println("$(reachid): INVALID")
+                write_output(reachid, 0, outdir, A0, n, Qa, Qu)
             end
         end
     end
 end
+
 main()
