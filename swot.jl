@@ -132,27 +132,27 @@ function main()
     n = missing
     Qa = Array{Missing}(missing, 1, size(W[1,:],1))
     Qu = Array{Missing}(missing, 1, size(W[1,:],1))
-    if all(ismissing, H) || all(ismissing, W) || all(ismissing, S)
-        println("$(reachid): INVALID, Missing H, W, or S")
-        write_output(reachid, 0, outdir, A0, n, Qa, Qu, W)
-    else
-        Hmin = minimum(skipmissing(H[1, :]))
-        Qp, np, rp, zp = Sad.priors(sosfile, Hmin, reachid)
-        if ismissing(Qp)
-            println("$(reachid): INVALID, missing mean discharge")
-            write_output(reachid, 0, outdir, A0, n, Qa, Qu, W)
-        else
-            try
-                nens = 100 # default ensemble size
-                nsamples = 1000 # default sampling size
-                Qa, Qu, A0, n = Sad.estimate(x, H, W, S, dA, Qp, np, rp, zp, nens, nsamples, Hr, Wr, Sr)
-                println("$(reachid): VALID")
-                write_output(reachid, 1, outdir, A0, n, Qa, Qu, W)
-            catch
-                println("$(reachid): INVALID, Sad.estimate failure")
-                write_output(reachid, 0, outdir, A0, n, Qa, Qu, W)
-            end
-        end
-    end
+    # if all(ismissing, H) || all(ismissing, W) || all(ismissing, S)
+    #     println("$(reachid): INVALID, Missing H, W, or S")
+    #     write_output(reachid, 0, outdir, A0, n, Qa, Qu, W)
+    # else
+    Hmin = minimum(skipmissing(H[1, :]))
+    Qp, np, rp, zp = Sad.priors(sosfile, Hmin, reachid)
+    # if ismissing(Qp)
+    #     println("$(reachid): INVALID, missing mean discharge")
+    #     write_output(reachid, 0, outdir, A0, n, Qa, Qu, W)
+    # else
+    #     try
+    nens = 100 # default ensemble size
+    nsamples = 1000 # default sampling size
+    Qa, Qu, A0, n = Sad.estimate(x, H, W, S, dA, Qp, np, rp, zp, nens, nsamples, Hr, Wr, Sr)
+    println("$(reachid): VALID")
+    write_output(reachid, 1, outdir, A0, n, Qa, Qu, W)
+    #         catch
+    #             println("$(reachid): INVALID, Sad.estimate failure")
+    #             write_output(reachid, 0, outdir, A0, n, Qa, Qu, W)
+    #         end
+    #     end
+    # end
 end
 main()
