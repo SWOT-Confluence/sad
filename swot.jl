@@ -124,7 +124,14 @@ function main()
 
     nids, x = river_info(reachid, swordfile)
     H, W, S, dA, Hr, Wr, Sr = read_swot_obs(swotfile, nids)
-    x, H, W, S = Sad.drop_unobserved(x, H, W, S)
+
+    try
+        x, H, W, S = Sad.drop_unobserved(x, H, W, S)
+    catch e
+        if e isa MethodError
+            println("Error loading swot observation")
+            end
+        end
     A0 = missing
     n = missing
     Qa = Array{Missing}(missing, 1, size(W,1))
