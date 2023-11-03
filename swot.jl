@@ -141,11 +141,7 @@ function main()
         write_output(reachid, 0, outdir, A0, n, Qa, Qu)
     else
         Hmin = minimum(skipmissing(H[1, :]))
-        Qp, np, rp, zp = try
-            Sad.priors(sosfile, Hmin, reachid)
-        catch
-            Sad.priors(qwbm, Hmin)
-        end
+        Qp, np, rp, zp = Sad.priors(sosfile, Hmin, reachid)
         if ismissing(Qp)
             println("$(reachid): INVALID, missing mean discharge")
             write_output(reachid, 0, outdir, A0, n, Qa, Qu)
