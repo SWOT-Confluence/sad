@@ -91,11 +91,12 @@ end
 Write SAD output to NetCDF.
 
 """
-function write_output(reachid, valid, outdir, A0, n, Qa, Qu)
+function write_output(reachid, valid, outdir, A0, n, Qa, Qu, W)
     outfile = joinpath(outdir, "$(reachid)_sad.nc")
     out = Dataset(outfile, "c")
     out.attrib["valid"] = valid   # FIXME Determine what is considered valid in the context of a SAD run
-    defDim(out, "nt", length(Qa))
+    defDim(out, "nx", size(W,1) + 1)
+    defDim(out, "nt", length(W[1,:]))
     ridv = defVar(out, "reach_id", Int64, (), fillvalue = FILL)
     ridv[:] = reachid
     A0v = defVar(out, "A0", Float64, (), fillvalue = FILL)
@@ -134,27 +135,27 @@ function main()
         end
     A0 = missing
     n = missing
-    Qa = Array{Missing}(missing, 1, size(W,1))
-    Qu = Array{Missing}(missing, 1, size(W,1))
+    Qa = Array{Missing}(missing, 1, size(W[1,:],1))
+    Qu = Array{Missing}(missing, 1, size(W[1,:],1))
     if all(ismissing, H) || all(ismissing, W) || all(ismissing, S)
         println("$(reachid): INVALID")
-        write_output(reachid, 0, outdir, A0, n, Qa, Qu)
+        write_output(reachid, 0, outdir, A0, n, Qa, Qu, W)
     else
         Hmin = minimum(skipmissing(H[1, :]))
         Qp, np, rp, zp = Sad.priors(sosfile, Hmin, reachid)
         if ismissing(Qp)
             println("$(reachid): INVALID, missing mean discharge")
-            write_output(reachid, 0, outdir, A0, n, Qa, Qu)
+            write_output(reachid, 0, outdir, A0, n, Qa, Qu, W)
         else
             try
                 nens = 100 # default ensemble size
                 nsamples = 1000 # default sampling size
                 Qa, Qu, A0, n = Sad.estimate(x, H, W, S, dA, Qp, np, rp, zp, nens, nsamples, Hr, Wr, Sr)
                 println("$(reachid): VALID")
-                write_output(reachid, 1, outdir, A0, n, Qa, Qu)
+                write_output(reachid, 1, outdir, A0, n, Qa, Qu, W)
             catch
                 println("$(reachid): INVALID")
-                write_output(reachid, 0, outdir, A0, n, Qa, Qu)
+                write_output(reachid, 0, outdir, A0, n, Qa, Qu, W)
             end
         end
     end
