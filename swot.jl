@@ -95,8 +95,8 @@ function write_output(reachid, valid, outdir, A0, n, Qa, Qu, W)
     outfile = joinpath(outdir, "$(reachid)_sad.nc")
     out = Dataset(outfile, "c")
     out.attrib["valid"] = valid   # FIXME Determine what is considered valid in the context of a SAD run
-    defDim(out, "nx", size(W,1) + 1)
-    defDim(out, "nt", length(W[1,:]))
+    defDim(out, "nx", size(W, 1))
+    defDim(out, "nt", size(W, 2))
     ridv = defVar(out, "reach_id", Int64, (), fillvalue = FILL)
     ridv[:] = reachid
     A0v = defVar(out, "A0", Float64, (), fillvalue = FILL)
@@ -135,8 +135,8 @@ function main()
         end
     A0 = missing
     n = missing
-    Qa = Array{Missing}(missing, 1, size(W[1,:],1))
-    Qu = Array{Missing}(missing, 1, size(W[1,:],1))
+    Qa = Array{Missing}(missing, 1, size(W, 2))
+    Qu = Array{Missing}(missing, 1, size(W, 2))
     if all(ismissing, H) || all(ismissing, W) || all(ismissing, S)
         println("$(reachid): INVALID")
         write_output(reachid, 0, outdir, A0, n, Qa, Qu, W)
