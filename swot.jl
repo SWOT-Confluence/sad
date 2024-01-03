@@ -120,7 +120,8 @@ function main()
     indir = joinpath("/mnt", "data", "input")
     outdir = joinpath("/mnt", "data", "output")
 
-    reachfile = isempty(ARGS) ? "reaches.json" : reachfile = ARGS[1]
+    # reachfile = isempty(ARGS) ? "reaches.json" : reachfile = ARGS[1]
+    reachfile = "reaches_" * ARGS[1] * ".json"
     reachid, swotfile, sosfile, swordfile = get_reach_files(indir, reachfile)
 
     nids, x = river_info(reachid, swordfile)
