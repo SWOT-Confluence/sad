@@ -50,8 +50,6 @@ resource "aws_batch_job_definition" "generate_batch_jd_sad" {
   CONTAINER_PROPERTIES
   platform_capabilities = ["FARGATE"]
   propagate_tags        = true
-   retry_strategy {
-    attempts = 3
-  }
+
   tags = { "job_definition": "${var.prefix}-sad" }
 }
