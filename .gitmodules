@@ -1,0 +1,3 @@
+[submodule "Sad.jl"]
+	path = Sad.jl
+	url = https://github.com/Hydro-Umass/Sad.jl.git
