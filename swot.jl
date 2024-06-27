@@ -15,11 +15,10 @@ const FILL = -999999999999
 Get reach file names.
 
 """
-function get_reach_files(indir, reachjson)
-    line = try parse(Int64, ENV["AWS_BATCH_JOB_ARRAY_INDEX"]) + 1 catch KeyError 1 end
+function get_reach_files(indir, reachjson, index)
     open(joinpath(indir, reachjson)) do jf
         data = read(jf, String)
-        reachlist = JSON.parse(data)[line]
+        reachlist = JSON.parse(data)[index]
         reachlist["reach_id"], joinpath(indir, "swot", reachlist["swot"]), joinpath(indir, "sos", reachlist["sos"]), joinpath(indir, "sword", reachlist["sword"])
     end
 end
@@ -120,8 +119,17 @@ function main()
     indir = joinpath("/mnt", "data", "input")
     outdir = joinpath("/mnt", "data", "output")
 
-    reachfile = isempty(ARGS) ? "reaches.json" : reachfile = "reaches_" * ARGS[1] * ".json"
-    reachid, swotfile, sosfile, swordfile = get_reach_files(indir, reachfile)
+    if length(ARGS) >= 2
+        index = parse(Int64, ARGS[1]) + 1
+        reachfile = ARGS[2]
+    elseif length(ARGS) >= 1
+        index = parse(Int64, ARGS[1]) + 1
+        reachfile = "reaches.json"
+    else
+        index = try parse(Int64, ENV["AWS_BATCH_JOB_ARRAY_INDEX"]) + 1 catch KeyError 1 end
+        reachfile = "reaches.json"
+    end
+    reachid, swotfile, sosfile, swordfile = get_reach_files(indir, reachfile, index)
 
     nids, x = river_info(reachid, swordfile)
     H, W, S, dA, Hr, Wr, Sr = read_swot_obs(swotfile, nids)
