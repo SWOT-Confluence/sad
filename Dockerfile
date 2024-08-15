@@ -8,7 +8,6 @@ RUN apt update && apt -y install python3 python3-dev python3-pip python3-venv py
 
 # Stage 2 - Install SAD dependencies
 FROM stage1 as stage2
-RUN git submodule update --init --recursive
 RUN mkdir -p /usr/local/bin/julia_pkgs
 ENV JULIA_LOAD_PATH="/usr/local/bin/julia_pkgs:$JULIA_LOAD_PATH"
 ENV JULIA_DEPOT_PATH="/usr/local/bin/julia_pkgs:$JULIA_DEPOT_PATH"

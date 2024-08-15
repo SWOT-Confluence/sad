@@ -26,7 +26,7 @@ function get_reach_files(indir, tmpdir, reachjson, index, sosbucket)
     reachlist = JSON.parse(data)[index]
     if !isempty(sosbucket)
         sosfile = joinpath(tmpdir, reachlist["sos"])
-        pushfirst!(pyimport("sys")."path", "./sos_read")   # Load sos_read script
+        pushfirst!(pyimport("sys")."path", "/app/sos_read")   # Load sos_read script
         downloadsos = pyimport("sos_read")["download_sos"]
         downloadsos(sosbucket, sosfile)
         reachlist["reach_id"], joinpath(indir, "swot", reachlist["swot"]), sosfile, joinpath(indir, "sword", reachlist["sword"])
