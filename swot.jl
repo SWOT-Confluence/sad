@@ -1,24 +1,36 @@
 ### Run SAD algorithm with SWOT data
 
 using Sad
+using ArgParse
 using DelimitedFiles
 using Distributions
+using JSON
 using LinearAlgebra
 using NCDatasets
-using JSON
+using PyCall
 
 const FILL = -999999999999
 
 """
     get_reach_files(indir, reachjson)
 
-Get reach file names.
+Get reach file names and download SoS file.
 
 """
-function get_reach_files(indir, reachjson, index)
+function get_reach_files(indir, tmpdir, reachjson, index, sosbucket)
+    data = Ref{Dict{String, Any}}
     open(joinpath(indir, reachjson)) do jf
         data = read(jf, String)
-        reachlist = JSON.parse(data)[index]
+    end
+
+    reachlist = JSON.parse(data)[index]
+    if !isempty(sosbucket)
+        sosfile = joinpath(tmpdir, reachlist["sos"])
+        pushfirst!(pyimport("sys")."path", "/app/sos_read")   # Load sos_read script
+        downloadsos = pyimport("sos_read")["download_sos"]
+        downloadsos(sosbucket, sosfile)
+        reachlist["reach_id"], joinpath(indir, "swot", reachlist["swot"]), sosfile, joinpath(indir, "sword", reachlist["sword"])
+    else
         reachlist["reach_id"], joinpath(indir, "swot", reachlist["swot"]), joinpath(indir, "sos", reachlist["sos"]), joinpath(indir, "sword", reachlist["sword"])
     end
 end
@@ -110,6 +122,32 @@ function write_output(reachid, valid, outdir, A0, n, Qa, Qu, W)
 end
 
 """
+    parse_commandline(r)
+
+Parse command line for arguments.
+
+"""
+function parse_commandline()
+    s = ArgParseSettings()
+    @add_arg_table s begin
+        "--index", "-i"
+            help = "Index of reach to run on"
+            arg_type = Int
+            default = 0
+        "--reachfile", "-r"
+            help = "Name of reaches JSON file"
+            arg_type = String
+            default = "reaches.json"
+        "--bucketkey", "-b"
+            help = "Bucket and key prefix to download SoS from"
+            arg_type = String
+            default = ""
+    end
+
+    return parse_args(s)
+end
+
+"""
     main()
 
 Main driver routine.
@@ -118,18 +156,26 @@ Main driver routine.
 function main()
     indir = joinpath("/mnt", "data", "input")
     outdir = joinpath("/mnt", "data", "output")
+    tmpdir = joinpath("/tmp")
 
-    if length(ARGS) >= 2
-        index = parse(Int64, ARGS[1]) + 1
-        reachfile = ARGS[2]
-    elseif length(ARGS) >= 1
-        index = parse(Int64, ARGS[1]) + 1
-        reachfile = "reaches.json"
-    else
+    parsed_args = parse_commandline()
+    if parsed_args["index"] == -256
         index = try parse(Int64, ENV["AWS_BATCH_JOB_ARRAY_INDEX"]) + 1 catch KeyError 1 end
-        reachfile = "reaches.json"
+    else
+        index = parsed_args["index"] + 1
     end
-    reachid, swotfile, sosfile, swordfile = get_reach_files(indir, reachfile, index)
+    
+    reachfile = parsed_args["reachfile"]
+    bucketkey = parsed_args["bucketkey"]
+    println("Index: $(index)")
+    println("Reach File: $(reachfile)")
+    println("Bucket Key: $(bucketkey)")
+
+    reachid, swotfile, sosfile, swordfile = get_reach_files(indir, tmpdir, reachfile, index, bucketkey)
+    println("Reach ID: $(reachid)")
+    println("SWOT: $(swotfile)")
+    println("SOS: $(sosfile)")
+    println("SWORD: $(swordfile)")
 
     nids, x = river_info(reachid, swordfile)
     H, W, S, dA, Hr, Wr, Sr = read_swot_obs(swotfile, nids)
