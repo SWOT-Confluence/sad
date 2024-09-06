@@ -159,7 +159,12 @@ function main()
     tmpdir = joinpath("/tmp")
 
     parsed_args = parse_commandline()
-    index = parsed_args["index"] + 1
+    if parsed_args["index"] == -256
+        index = try parse(Int64, ENV["AWS_BATCH_JOB_ARRAY_INDEX"]) + 1 catch KeyError 1 end
+    else
+        index = parsed_args["index"] + 1
+    end
+    
     reachfile = parsed_args["reachfile"]
     bucketkey = parsed_args["bucketkey"]
     println("Index: $(index)")
