@@ -64,19 +64,10 @@ function read_swot_obs(ncfile::String, nids::Vector{Int})
         nid = nodes["node_id"][:]
         dmap = Dict(nid[k] => k for k=1:length(nid))
         i = [dmap[k] for k in nids]
-        println("Prints are working...")
         time_str_var = reaches["time_str"].var
-        # time_str = permutedims(time_str[:])
         time_str_raw = permutedims(time_str_var[:])
         time_str = [join(time_str_raw[i, :]) for i in 1:size(time_str_raw, 1)]
-        println("HERE IS TYPE")
-        println(eltype(time_str))
-        # Function to handle mixed types and convert to strings
 
-        # time_str_raw = reaches["time_str"][:]  # Load raw data without type interpretation
-        # println("Before changing")
-        # time_str = map(x -> string(x), time_str_raw)
-        # println("made it to time string...")
 
         H[i, :], W[i, :], S[i, :], dA, Hr, Wr, Sr, time_str
     end
@@ -132,8 +123,6 @@ function write_output(reachid, valid, outdir, A0, n, Qa, Qu, W, time_str)
     Qav[:] = replace!(Qa, NaN=>FILL)
     Quv = defVar(out, "Q_u", Float64, ("nt",), fillvalue = FILL)
     Quv[:] = Qu
-    println("HERE IS TIME STRING")
-    println(time_str)
     time_str_var = defVar(out,"time_str", String, ("nt",), fillvalue = "no_data")
     time_str_var[:] = time_str
     close(out)
