@@ -13,6 +13,7 @@ ENV JULIA_LOAD_PATH="/usr/local/bin/julia_pkgs:$JULIA_LOAD_PATH"
 ENV JULIA_DEPOT_PATH="/usr/local/bin/julia_pkgs:$JULIA_DEPOT_PATH"
 ENV PYTHON="/usr/bin/python3"
 COPY deps.jl /app/deps.jl
+ENV JULIA_CPU_TARGET="generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)"
 RUN julia /app/deps.jl \
 	&& find /usr/local/bin/julia_pkgs -type d -exec chmod 755 {} \; \
 	&& find /usr/local/bin/julia_pkgs -type f -exec chmod 644 {} \;
