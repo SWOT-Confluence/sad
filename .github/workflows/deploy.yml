@@ -121,7 +121,7 @@ jobs:
       # Build and push Docker container image
       - name: Build and Push to AWS ECR
         run: |
-          docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
+          docker build --platform linux/amd64 -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
           docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
 
       # Set up Terraform
