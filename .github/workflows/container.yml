@@ -35,7 +35,6 @@ jobs:
         with:
           repository: ${{ github.repository }}
           submodules: 'recursive'
-          submodules: 'recursive'
 
       # ghcr.io container image
       - name: Log in to the Container registry
