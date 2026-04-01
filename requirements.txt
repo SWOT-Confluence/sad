@@ -1,0 +1,6 @@
+jax[cpu]
+diffrax
+numpy
+scipy
+netCDF4
+tqdm
