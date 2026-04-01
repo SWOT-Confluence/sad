@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Stage 1 - Python dependencies
 FROM stage0 AS stage1
 COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r /app/requirements.txt
+RUN /usr/local/bin/pip3 install --no-cache-dir -r /app/requirements.txt
 
 # Stage 2 - Copy algorithm source
 FROM stage1 AS stage2
@@ -35,4 +35,4 @@ ENV PYTHONPATH="/app:${PYTHONPATH}"
 ENV JAX_ENABLE_X64="1"
 
 WORKDIR /app
-ENTRYPOINT ["python", "/app/swot.py"]
+ENTRYPOINT ["/usr/local/bin/python3", "/app/swot.py"]
