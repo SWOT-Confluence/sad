@@ -14,11 +14,10 @@ RUN apt update \
     netcdf-bin \
     libnetcdf-dev
 
-# Stage 2 - Create virtual environment and install dependencies
+# Stage 2 - Install dependencies into system Python
 FROM stage1 AS stage2
 COPY requirements.txt /app/requirements.txt
-RUN /usr/local/bin/python3 -m venv /app/env
-RUN /app/env/bin/pip install -r /app/requirements.txt
+RUN pip3 install --no-cache-dir -r /app/requirements.txt
 
 # Stage 3 - Copy algorithm source
 FROM stage2 AS stage3
@@ -42,4 +41,4 @@ ENV PYTHONPATH="/app:${PYTHONPATH}"
 ENV JAX_ENABLE_X64="1"
 
 WORKDIR /app
-ENTRYPOINT ["/app/env/bin/python3", "/app/swot.py"]
+ENTRYPOINT ["python3", "/app/swot.py"]
