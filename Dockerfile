@@ -1,38 +1,45 @@
 # Stage 0 - Base Python image
 FROM python:3.12-slim AS stage0
-RUN apt-get update && apt-get install -y --no-install-recommends \
+
+# Stage 1 - Debian dependencies
+FROM stage0 AS stage1
+RUN apt update \
+    && DEBIAN_FRONTEND=noninteractive apt install -y \
+    curl \
+    zip \
+    python3-dev \
     build-essential \
     libxml2 \
-    libhdf5-dev \
-    libnetcdf-dev \
-    && rm -rf /var/lib/apt/lists/*
+    libhdf5-serial-dev \
+    netcdf-bin \
+    libnetcdf-dev
 
-# Stage 1 - Python dependencies
-FROM stage0 AS stage1
-COPY requirements.txt /app/requirements.txt
-RUN /usr/local/bin/pip3 install --no-cache-dir -r /app/requirements.txt
-
-# Stage 2 - Copy algorithm source
+# Stage 2 - Create virtual environment and install dependencies
 FROM stage1 AS stage2
+COPY requirements.txt /app/requirements.txt
+RUN /usr/local/bin/python3 -m venv /app/env
+RUN /app/env/bin/pip install -r /app/requirements.txt
+
+# Stage 3 - Copy algorithm source
+FROM stage2 AS stage3
 COPY src/preprocess.py  /app/preprocess.py
 COPY src/priors.py      /app/priors.py
 COPY src/gvf.py         /app/gvf.py
 COPY src/rejection.py   /app/rejection.py
 COPY src/infer.py       /app/infer.py
 COPY src/utils.py       /app/utils.py
-COPY swot.py        /app/swot.py
+COPY src/swot.py        /app/swot.py
 COPY ./sos_read     /app/sos_read/
 
-# Stage 3 - Final image
-FROM stage2 AS stage3
+# Stage 4 - Execute algorithm
+FROM stage3 AS stage4
 LABEL version="1.0" \
     description="Containerized SAD algorithm." \
     "confluence.contact"="ntebaldi@umass.edu" \
     "algorithm.contact"="kandread@umass.edu"
 
 ENV PYTHONPATH="/app:${PYTHONPATH}"
-# Enable JAX float64 globally via environment variable
 ENV JAX_ENABLE_X64="1"
 
 WORKDIR /app
-ENTRYPOINT ["/usr/local/bin/python3", "/app/swot.py"]
+ENTRYPOINT ["/app/env/bin/python3", "/app/swot.py"]
