@@ -14,7 +14,7 @@ COPY Sad.jl/src/priors.jl     /app/priors.jl
 COPY Sad.jl/src/gvf.jl        /app/gvf.jl
 COPY Sad.jl/src/rejection.jl  /app/rejection.jl
 COPY Sad.jl/src/inference.jl  /app/inference.jl
-COPY Sad.jl/scripts/swot.jl       /app/swot.jl
+COPY swot.jl       /app/swot.jl
 COPY ./sos_read    /app/sos_read/
 
 LABEL version="1.0" \
