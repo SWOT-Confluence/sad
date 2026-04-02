@@ -12,6 +12,7 @@ RUN apt update \
 # Stage 2 - Create virtual environment and install dependencies
 FROM stage1 as stage2
 COPY requirements.txt /app/requirements.txt
+RUN pip3 intall -r /app/requirements.txt
 # RUN /usr/local/bin/python3 -m venv /app/env
 # RUN /app/env/bin/pip install -r /app/requirements.txt
 
