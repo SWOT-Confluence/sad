@@ -2,7 +2,7 @@
 # Derives from the pre-built base image that has all dependencies installed.
 #
 # Stage 0 - Create from Python3.12 image
-FROM python:3.12-slim as stage0
+FROM kandread/sad-base:1.0 as stage0
 
 # Stage 1 - Debian dependencies
 FROM stage0 as stage1
@@ -12,8 +12,8 @@ RUN apt update \
 # Stage 2 - Create virtual environment and install dependencies
 FROM stage1 as stage2
 COPY requirements.txt /app/requirements.txt
-RUN /usr/local/bin/python3 -m venv /app/env
-RUN /app/env/bin/pip install -r /app/requirements.txt
+# RUN /usr/local/bin/python3 -m venv /app/env
+# RUN /app/env/bin/pip install -r /app/requirements.txt
 
 # Stage 3 - Copy SAD code
 FROM stage2 as stage3
@@ -33,4 +33,4 @@ LABEL version="1.0" \
     "confluence.contact"="ntebaldi@umass.edu" \
     "algorithm.contact"="kandread@umass.edu"
 ENV JAX_ENABLE_X64="1"
-ENTRYPOINT ["/app/env/bin/python3", "/app/swot.py"]
+ENTRYPOINT ["python3", "/app/swot.py"]
