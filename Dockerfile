@@ -10,7 +10,7 @@ COPY src/gvf.py         /app/gvf.py
 COPY src/rejection.py   /app/rejection.py
 COPY src/infer.py       /app/infer.py
 COPY src/utils.py       /app/utils.py
-COPY src/swot.py        /app/swot.py
+COPY swot.py        /app/swot.py
 COPY ./sos_read     /app/sos_read/
 
 LABEL version="1.0" \
