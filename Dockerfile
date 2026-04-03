@@ -15,6 +15,7 @@ COPY Sad.jl/src/gvf.jl        /app/gvf.jl
 COPY Sad.jl/src/rejection.jl  /app/rejection.jl
 COPY Sad.jl/src/inference.jl  /app/inference.jl
 COPY swot.jl       /app/swot.jl
+COPY --chmod=755 run.sh /app/run.sh
 COPY ./sos_read    /app/sos_read/
 
 LABEL version="1.0" \
@@ -22,7 +23,4 @@ LABEL version="1.0" \
     "confluence.contact"="ntebaldi@umass.edu" \
     "algorithm.contact"="kandread@umass.edu"
 
-ENTRYPOINT ["/usr/local/julia/bin/julia", \
-    "--sysimage=/usr/local/julia/bin/julia_base.so", \
-    "--project=/app", \
-    "/app/swot.jl"]
+ENTRYPOINT ["/app/run.sh"]
