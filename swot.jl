@@ -3,6 +3,7 @@
 using Pkg
 Pkg.activate(@__DIR__)
 Pkg.instantiate()
+Pkg.add("Sad")
 
 using Sad
 using ArgParse
