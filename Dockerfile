@@ -15,8 +15,10 @@ COPY Sad.jl/src/gvf.jl        /app/gvf.jl
 COPY Sad.jl/src/rejection.jl  /app/rejection.jl
 COPY Sad.jl/src/inference.jl  /app/inference.jl
 COPY swot.jl       /app/swot.jl
-COPY --chmod=755 run.sh /app/run.sh
+COPY run.sh /app/run.sh
 COPY ./sos_read    /app/sos_read/
+
+RUN chmod +x /app/run.sh
 
 LABEL version="1.0" \
     description="Containerized SAD algorithm." \
