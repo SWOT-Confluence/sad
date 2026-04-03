@@ -18,11 +18,9 @@ COPY swot.jl       /app/swot.jl
 COPY run.sh /app/run.sh
 COPY ./sos_read    /app/sos_read/
 
-RUN chmod +x /app/run.sh
-
 LABEL version="1.0" \
     description="Containerized SAD algorithm." \
     "confluence.contact"="ntebaldi@umass.edu" \
     "algorithm.contact"="kandread@umass.edu"
 
-ENTRYPOINT ["/app/run.sh"]
+ENTRYPOINT ["bash", "/app/run.sh"]
