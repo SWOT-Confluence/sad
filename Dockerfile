@@ -4,7 +4,7 @@
 # Only rebuild this when algorithm source changes
 # Should be fast since no compilation happens at build time.
 
-FROM ghcr.io/kandread/sad-julia-base:1.0
+FROM ghcr.io/kandread/sad-julia-base:1.1
 
 COPY Sad.jl/Project.toml  /app/Project.toml
 COPY Sad.jl/Manifest.toml /app/Manifest.toml
