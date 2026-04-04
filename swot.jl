@@ -1,10 +1,5 @@
 ### Run SAD algorithm with SWOT data
 
-using Pkg
-Pkg.activate(@__DIR__)
-Pkg.instantiate()
-Pkg.add("Sad")
-
 using Sad
 using ArgParse
 using DelimitedFiles
