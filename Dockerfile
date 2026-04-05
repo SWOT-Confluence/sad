@@ -1,5 +1,5 @@
 # Stage 0 - Create from julia image and install OS packages
-FROM julia:1.11.6 as stage0
+FROM julia:1.12.5 as stage0
 RUN apt update && apt -y install bzip2 build-essential libxml2
 
 # STAGE 1 - Python and python packages for S3 functionality
@@ -15,8 +15,8 @@ ENV PYTHON="/usr/bin/python3"
 COPY deps.jl /app/deps.jl
 ENV JULIA_CPU_TARGET="generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)"
 RUN julia /app/deps.jl \
-	&& find /usr/local/bin/julia_pkgs -type d -exec chmod 755 {} \; \
-	&& find /usr/local/bin/julia_pkgs -type f -exec chmod 644 {} \;
+        && find /usr/local/bin/julia_pkgs -type d -exec chmod 755 {} \; \
+        && find /usr/local/bin/julia_pkgs -type f -exec chmod 644 {} \;
 
 # Stage 3 - Copy SWOT script
 FROM stage2 as stage3
@@ -26,7 +26,7 @@ COPY ./sos_read /app/sos_read/
 # Stage 4 - Execute algorithm
 FROM stage3 as stage4
 LABEL version="1.0" \
-	description="Containerized SAD algorithm." \
-	"confluence.contact"="ntebaldi@umass.edu" \
-	"algorithm.contact"="kandread@umass.edu"
+        description="Containerized SAD algorithm." \
+        "confluence.contact"="ntebaldi@umass.edu" \
+        "algorithm.contact"="kandread@umass.edu"
 ENTRYPOINT ["/usr/local/julia/bin/julia", "/app/swot.jl"]
