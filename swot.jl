@@ -171,7 +171,7 @@ function main()
     else
         index = parsed_args["index"] + 1
     end
-    
+
     reachfile = parsed_args["reachfile"]
     bucketkey = parsed_args["bucketkey"]
     println("Index: $(index)")
@@ -188,7 +188,7 @@ function main()
     H, W, S, dA, Hr, Wr, Sr, time_str = read_swot_obs(swotfile, nids)
 
     try
-        x, H, W, S = Sad.drop_unobserved(x, H, W, S)
+        reach = Sad.preprocess(x, H, W, S)
     catch e
         if e isa MethodError
             println("Error loading swot observation")
@@ -202,16 +202,17 @@ function main()
         println("$(reachid): INVALID")
         write_output(reachid, 0, outdir, A0, n, Qa, Qu, W, time_str)
     else
-        Hmin = minimum(skipmissing(H[1, :]))
-        Qp, np, rp, zp = Sad.priors(sosfile, Hmin, reachid)
-        if ismissing(Qp)
+        p = Sad.priors(sosfile, reach.hmin, reachid)
+        if ismissing(p.Qp)
             println("$(reachid): INVALID, missing mean discharge")
             write_output(reachid, 0, outdir, A0, n, Qa, Qu, W, time_str)
         else
             try
-                nens = 100 # default ensemble size
-                nsamples = 1000 # default sampling size
-                Qa, Qu, A0, n = Sad.estimate(x, H, W, S, dA, Qp, np, rp, zp, nens, nsamples, Hr, Wr, Sr)
+                res = Sad.infer(p, reach)
+                A0  = Sad.compute_A0(reach, res.reach_ensemble)
+                n   = mean(res.reach_ensemble[1, :])
+                Qa[1, :]  = res.Q_post
+                Qu[1, :]  = [isnothing(res.A_post[t]) ? NaN : std(exp.(res.A_post[t][1,:])) for t in 1:reach.nt]
                 println("$(reachid): VALID")
                 write_output(reachid, 1, outdir, A0, n, Qa, Qu, W, time_str)
             catch
