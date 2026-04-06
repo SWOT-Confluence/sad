@@ -48,11 +48,11 @@ Load SWOT observations.
 """
 function read_swot_obs(ncfile::String, nids::Vector{Int})
     Dataset(ncfile) do ds
-        nodes = NCDatasets.group(ds, "node")
-        reaches = NCDatasets.group(ds, "reach")
-        S = permutedims(nodes["slope2"][:])
-        H = permutedims(nodes["wse"][:])
-        W = permutedims(nodes["width"][:])
+        nodes = ds.group["node"]
+        reaches = ds.group["reach"]
+        S = permutedims(nodes["slope2"][:, :])
+        H = permutedims(nodes["wse"][:, :])
+        W = permutedims(nodes["width"][:, :])
         dA = reaches["d_x_area"][:]
         dA = convert(Vector{Sad.FloatM}, dA)
         Hr = convert(Vector{Sad.FloatM}, reaches["wse"][:])
@@ -64,10 +64,8 @@ function read_swot_obs(ncfile::String, nids::Vector{Int})
         nid = nodes["node_id"][:]
         dmap = Dict(nid[k] => k for k=1:length(nid))
         i = [dmap[k] for k in nids]
-        time_str_var = reaches["time_str"].var
-        time_str_raw = permutedims(time_str_var[:])
-        time_str = [join(time_str_raw[i, :]) for i in 1:size(time_str_raw, 1)]
-
+        time = reaches["time"][:]
+        time_str = [string(t) for t in time]
 
         H[i, :], W[i, :], S[i, :], dA, Hr, Wr, Sr, time_str
     end
@@ -86,7 +84,7 @@ Retrieve information about river reach cross sections.
 """
 function river_info(id::Int, swordfile::String)
     Dataset(swordfile) do fd
-        g = NCDatasets.group(fd, "nodes")
+        g = fd.group["nodes"]
         i = findall(g["reach_id"][:] .== id)
         nid = g["node_id"][i]
         x = g["dist_out"][i]
