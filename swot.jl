@@ -114,9 +114,9 @@ function write_output(reachid, valid, outdir, A0, n, Qa, Qu, W, time_str)
     ridv = defVar(out, "reach_id", Int64, (), fillvalue = FILL)
     ridv[:] = reachid
     A0v = defVar(out, "A0", Float64, (), fillvalue = FILL)
-    A0v[:] = A0
+    A0v[:] = coalesce(A0, FILL)
     nv = defVar(out, "n", Float64, (), fillvalue = FILL)
-    nv[:] = n
+    n_v[:]  = coalesce(n,  FILL)
     Qav = defVar(out, "Qa", Float64, ("nt",), fillvalue = FILL)
     Qav[:] = replace!(Qa, NaN=>FILL)
     Quv = defVar(out, "Q_u", Float64, ("nt",), fillvalue = FILL)
