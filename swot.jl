@@ -195,17 +195,17 @@ function main()
         println("$(reachid): INVALID")
         write_output(reachid, 0, outdir, A0, n, Qa, Qu, W, time_str)
     else
-        p = Sad.priors(sosfile, reach.hmin, reachid)
+        p = Sad.priors(sosfile, reach.hmin, reachid; S0=mean(reach.S0.(reach.x)))
         if ismissing(p)
             println("$(reachid): INVALID, missing mean discharge")
             write_output(reachid, 0, outdir, A0, n, Qa, Qu, W, time_str)
         else
             try
                 res = Sad.infer(p, reach, time_str=time_str)
-                A0  = Sad.compute_A0(reach, res.reach_ensemble)
-                n   = mean(res.reach_ensemble[1, :])
+                A0  = Sad.compute_A0(reach, res)
+                n   = res.n_post
                 Qa[1, :]  = [isnan(q) ? missing : q for q in res.Q_post]
-                Qu[1, :] = [isnothing(res.A_post[t]) ? missing : std(res.A_post[t][1, :]) for t in 1:reach.nt]
+                Qu[1, :] = [isnan(s) ? missing : s for s in res.Q_std]
                 println("$(reachid): VALID")
                 write_output(reachid, 1, outdir, A0, n, Qa, Qu, W, time_str)
             catch
