@@ -99,21 +99,29 @@ def read_swot_obs(ncfile, nids):
 
         tvar = reaches["time"]
         traw = np.ma.filled(tvar[:].astype(float), np.nan)
+        # Some reaches carry overpasses with no timestamp. They cannot be assigned to a
+        # month, so they are excluded from the inversion via `time_ok` but still occupy a
+        # slot on the output time axis.
+        time_ok = np.isfinite(traw)
+        time_s = np.zeros(len(traw))
+        time_str = [TIME_FILL] * len(traw)
         if hasattr(tvar, "units"):
-            dates = num2date(traw, tvar.units,
+            dates = num2date(traw[time_ok], tvar.units,
                              only_use_cftime_datetimes=False, only_use_python_datetimes=True)
-            time_s = np.array([(d - EPOCH).total_seconds() for d in dates], float)
-            time_str = [d.isoformat() for d in dates]
+            for k, d in zip(np.flatnonzero(time_ok), dates):
+                time_s[k] = (d - EPOCH).total_seconds()
+                time_str[k] = d.isoformat()
         else:
-            time_s = traw
-            time_str = [str(t) for t in traw]
+            time_s[time_ok] = traw[time_ok]
+            for k in np.flatnonzero(time_ok):
+                time_str[k] = str(traw[k])
 
     # SWOT marks missing data with both masks and NaNs; treat them alike.
     bad = ~np.isfinite(wse)
     wse[bad] = np.nan
     width[bad] = np.nan
-    return wse, width, slope, time_s, time_str, np.asarray(nids)[
-        [i for i, n in enumerate(nids) if int(n) in dmap]]
+    node_id = np.asarray(nids)[[i for i, n in enumerate(nids) if int(n) in dmap]]
+    return wse, width, slope, time_s, time_str, time_ok, node_id
 
 
 def read_prior(sosfile, reach_id):
@@ -155,7 +163,7 @@ def write_output(reachid, valid, outdir, A0, n, Qa, Qu, nx, time_str):
         v[:] = np.where(np.isfinite(Qa), Qa, FILL)
         v = out.createVariable("Q_u", "f8", ("nt",), fill_value=FILL)
         v[:] = np.where(np.isfinite(Qu), Qu, FILL)
-        v = out.createVariable("time_str", str, ("nt",))
+        v = out.createVariable("time_str", str, ("nt",), fill_value=TIME_FILL)
         v[:] = np.array([t if t else TIME_FILL for t in time_str], dtype=object)
 
 
@@ -178,7 +186,7 @@ def main():
     print(f"SWORD: {swordfile}")
 
     nids = river_info(reachid, swordfile)
-    wse, width, slope, time_s, time_str, node_id = read_swot_obs(swotfile, nids)
+    wse, width, slope, time_s, time_str, time_ok, node_id = read_swot_obs(swotfile, nids)
     nt, nx = wse.shape
 
     empty = np.full(nt, np.nan)
@@ -194,7 +202,7 @@ def main():
         return
 
     node_mask = np.isfinite(wse) & np.isfinite(width)
-    overpass_mask = node_mask.any(axis=1)
+    overpass_mask = node_mask.any(axis=1) & time_ok
     params, _, inv_cfg = sadnm.load_config()
 
     res = sadnm.run_reach(
