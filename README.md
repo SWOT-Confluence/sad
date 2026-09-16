@@ -2,6 +2,24 @@
 
 SAD docker container hosted on AWS ECR used to create containers in the cloud.
 
+## Algorithm
+
+As of version 2.0 this module runs [SADnm](https://github.com/kandread/SADnm) (Python,
+numpy/scipy) instead of the original Julia `Sad.jl`. The output specification is
+unchanged: `<reach_id>_sad.nc` with `valid`, `reach_id`, `A0`, `n`, `Qa`, `Q_u` and
+`time_str`.
+
+**`A0` and `n` are effective quantities, not surveyed or identified ones.** SADnm never
+separately identifies Manning's `n` — roughness and slope are absorbed jointly into a
+single level constant that is anchored to the monthly prior. Both are back-derived from
+that constant, so bias in the prior climatology transfers directly into them, and `n`
+additionally depends on the SWOT reach slope. Where a reach has no usable positive slope,
+`n` is written as the fill value rather than being computed from a substituted one.
+
+`Q_u` is the lognormal standard deviation implied by SADnm's predictive uncertainty.
+Note that this uncertainty is currently known to be over-confident — a nominal 90%
+interval captures roughly 70% empirically.
+
 ## publishing disclaimer
 
 Please **do not share this** repository, algorithm code contained within, or containers with others. 

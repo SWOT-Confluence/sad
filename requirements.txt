@@ -1,0 +1,13 @@
+boto3==1.43.95
+botocore==1.43.95
+certifi==2026.7.22
+cftime==1.6.5
+jmespath==1.1.0
+netCDF4==1.7.4
+numpy==2.5.3
+python-dateutil==2.9.0.post0
+s3transfer==0.19.2
+scipy==1.18.1
+six==1.17.0
+urllib3==2.8.0
+sadnm @ git+https://github.com/kandread/SADnm@v0.1.0
